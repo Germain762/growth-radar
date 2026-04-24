@@ -1,0 +1,62 @@
+# ============================================================
+# Growth Radar — Local infrastructure
+# ============================================================
+# Lance les services d'infra nécessaires au projet.
+# Usage :
+#   docker compose -f docker/docker-compose.yml up -d     # start
+#   docker compose -f docker/docker-compose.yml down      # stop
+#   docker compose -f docker/docker-compose.yml logs -f   # tail logs
+
+services:
+
+  # ----------------------------------------------------------
+  # MinIO : S3-compatible object storage (local)
+  # - API S3 : port 9000 (utilisé par boto3, Spark, dbt)
+  # - Console web : port 9001 (UI pour inspecter les buckets)
+  # ----------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: growth-radar-minio
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ----------------------------------------------------------
+  # MinIO client : crée automatiquement les buckets au démarrage
+  # Ce container s'exécute une seule fois puis s'arrête.
+  # ----------------------------------------------------------
+  minio-setup:
+    image: minio/mc:latest
+    container_name: growth-radar-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing local/bronze;
+      mc mb --ignore-existing local/silver;
+      mc mb --ignore-existing local/gold;
+      mc ls local;
+      echo '✅ Buckets created : bronze, silver, gold';
+      "
+
+volumes:
+  minio_data:
+    name: growth-radar-minio-data
+
+networks:
+  default:
+    name: growth-radar-network
