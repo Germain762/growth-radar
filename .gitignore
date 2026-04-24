@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment variables (SECRETS !)
+.env
+.env.local
+.env.*.local
+
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+dbt_project/.user.yml
+
+# Dagster
+dagster_project/.dagster_home/
+dagster_project/dagster.yaml.local
+
+# DuckDB local databases
+*.duckdb
+*.duckdb.wal
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Data files (ne JAMAIS commiter des données brutes dans Git)
+data/
+*.parquet
+*.csv
+!dbt_project/seeds/*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
