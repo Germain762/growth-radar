@@ -51,6 +51,7 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "ipykernel>=6.29",
+    "testcontainers[minio]>=4.0",
 ]
 
 [build-system]
@@ -96,3 +97,6 @@ indent-style = "space"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
