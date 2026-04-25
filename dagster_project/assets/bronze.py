@@ -101,7 +101,7 @@ def yahoo_prices_history_bronze(
         # Note : we write per-ticker per-date. This is intentional :
         # downstream, dbt/DuckDB will read all part-*.parquet files in
         # date=YYYY-MM-DD/ folders and union them naturally.
-        key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}" f"/ticker={ticker}.parquet"
+        key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}/ticker={ticker}.parquet"
 
         table = pa.Table.from_pylist(rows)
         buf = io.BytesIO()
