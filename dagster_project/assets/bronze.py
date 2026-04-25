@@ -1,100 +1,205 @@
 """
 Bronze layer assets : raw data ingested from external APIs.
 
-Naming convention : <source>_<dataset>_bronze
+Two assets for yfinance prices :
+  - yahoo_prices_history_bronze : partitioned by ticker, used for initial
+    historical backfill. Each ticker run = 1 API call covering full history.
+  - yahoo_prices_daily_bronze : partitioned by day, used for daily updates.
+    Each day run = 1 API call covering all watchlist tickers.
+
+This split optimizes for yfinance's rate limits : we minimize the number of
+API calls by grouping appropriately.
 """
 
+import io
 from datetime import date, timedelta
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+import yfinance as yf
 from dagster import (
     AssetExecutionContext,
     DailyPartitionsDefinition,
     MaterializeResult,
     MetadataValue,
+    StaticPartitionsDefinition,
     asset,
 )
 
 from dagster_project.resources.s3 import S3Resource
 from ingestion.sources.yahoo_finance import (
-    fetch_ticker_prices,
+    BRONZE_BUCKET,
+    SOURCE_PREFIX,
     load_watchlist,
     validate_and_convert,
-    write_parquet_to_minio,
 )
 
-# A daily partition starting 2 years ago.
-# Each partition = one trading day.
-# This enables backfills per date, and only-current-day in scheduled runs.
+# ---- Watchlist loaded once at module import ----
+WATCHLIST_PATH = Path("ingestion/config/watchlist_week1.csv")
+WATCHLIST_TICKERS = load_watchlist(WATCHLIST_PATH)
+
+# ---- Partitions definitions ----
+ticker_partitions = StaticPartitionsDefinition(WATCHLIST_TICKERS)
 daily_partitions = DailyPartitionsDefinition(start_date="2023-04-01")
 
 
+# =========================================================
+# Asset 1 : historical backfill, partitioned by ticker
+# =========================================================
 @asset(
-    name="yahoo_prices_bronze",
-    description="Raw OHLCV daily prices from Yahoo Finance, partitioned by date.",
+    name="yahoo_prices_history_bronze",
+    description=(
+        "Historical OHLCV from Yahoo Finance, one partition per ticker. "
+        "Use this for the initial backfill : each materialization "
+        "downloads the full history of one ticker in a single API call."
+    ),
     group_name="bronze",
-    partitions_def=daily_partitions,
+    partitions_def=ticker_partitions,
     compute_kind="python",
+    pool="bronze",
 )
-def yahoo_prices_bronze(
+def yahoo_prices_history_bronze(
     context: AssetExecutionContext,
     s3: S3Resource,
 ) -> MaterializeResult:
-    """
-    Materialize one day-partition of yfinance prices.
+    """Materialize one ticker's full history."""
+    ticker = context.partition_key
+    end_date = date.today()
+    start_date = date(2023, 1, 1)  # 2+ years of history
 
-    For each partition (a date), fetches all watchlist tickers' prices
-    for that day and writes a Parquet file to s3://bronze/yahoo_finance/...
-    """
-    target_date = date.fromisoformat(context.partition_key)
+    context.log.info(f"Fetching {ticker} from {start_date} to {end_date}")
 
-    context.log.info(f"Materializing yahoo_prices for partition {target_date}")
+    df = yf.download(
+        ticker,
+        start=start_date,
+        end=end_date + timedelta(days=1),
+        progress=False,
+        auto_adjust=False,
+        multi_level_index=False,
+    )
 
-    # Load watchlist
-    watchlist_path = Path("ingestion/config/watchlist_week1.csv")
-    tickers = load_watchlist(watchlist_path)
+    if df.empty:
+        context.log.warning(f"No data for {ticker}")
+        return MaterializeResult(metadata={"rows_written": 0})
 
-    rows: list[dict] = []
-    failed_tickers: list[str] = []
+    # Validate row by row
+    valid_rows = validate_and_convert(df, ticker)
 
-    # For a daily partition, we fetch only that day's data.
-    # yfinance needs start/end with end exclusive, so we ask for a 2-day window
-    # and filter to keep only the target date.
-    fetch_start = target_date
-    fetch_end = target_date + timedelta(days=1)
+    if not valid_rows:
+        return MaterializeResult(metadata={"rows_written": 0})
 
-    for ticker in tickers:
-        try:
-            df = fetch_ticker_prices(ticker, fetch_start, fetch_end)
-            valid_rows = validate_and_convert(df, ticker)
+    # Group rows by date and write one file per (date, ticker partition)
+    rows_by_date: dict[date, list[dict]] = {}
+    for row in valid_rows:
+        rows_by_date.setdefault(row["price_date"], []).append(row)
 
-            # Keep only rows for the target date
-            day_rows = [r for r in valid_rows if r["price_date"] == target_date]
-            rows.extend(day_rows)
+    s3_client = s3.get_client()
+    files_written = 0
 
-        except Exception as e:
-            context.log.warning(f"Ticker {ticker} failed: {e}")
-            failed_tickers.append(ticker)
+    for target_date, rows in rows_by_date.items():
+        # Note : we write per-ticker per-date. This is intentional :
+        # downstream, dbt/DuckDB will read all part-*.parquet files in
+        # date=YYYY-MM-DD/ folders and union them naturally.
+        key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}" f"/ticker={ticker}.parquet"
 
-    if not rows:
-        context.log.warning(f"No data for partition {target_date} (probably non-trading day)")
-        return MaterializeResult(
-            metadata={
-                "rows_written": 0,
-                "tickers_failed": failed_tickers,
-                "is_trading_day": False,
-            }
+        table = pa.Table.from_pylist(rows)
+        buf = io.BytesIO()
+        pq.write_table(table, buf, compression="snappy")
+        buf.seek(0)
+
+        s3_client.put_object(
+            Bucket=BRONZE_BUCKET,
+            Key=key,
+            Body=buf.getvalue(),
         )
-
-    # Write to MinIO using our existing function
-    s3_key = write_parquet_to_minio(rows, target_date)
+        files_written += 1
 
     return MaterializeResult(
         metadata={
-            "rows_written": len(rows),
-            "tickers_succeeded": len({r["ticker"] for r in rows}),
-            "tickers_failed": failed_tickers,
-            "s3_key": MetadataValue.text(f"s3://bronze/{s3_key}"),
+            "ticker": ticker,
+            "rows_written": len(valid_rows),
+            "files_written": files_written,
+            "date_range_start": str(min(rows_by_date)),
+            "date_range_end": str(max(rows_by_date)),
+        }
+    )
+
+
+# =========================================================
+# Asset 2 : daily updates, partitioned by day
+# =========================================================
+@asset(
+    name="yahoo_prices_daily_bronze",
+    description=(
+        "Daily OHLCV from Yahoo Finance, one partition per trading day. "
+        "Use this for incremental refreshes : each materialization "
+        "fetches all watchlist tickers in a single API call."
+    ),
+    group_name="bronze",
+    partitions_def=daily_partitions,
+    compute_kind="python",
+    pool="bronze",
+)
+def yahoo_prices_daily_bronze(
+    context: AssetExecutionContext,
+    s3: S3Resource,
+) -> MaterializeResult:
+    """Materialize one day's prices for all watchlist tickers."""
+    target_date = date.fromisoformat(context.partition_key)
+
+    context.log.info(f"Fetching {len(WATCHLIST_TICKERS)} tickers for {target_date}")
+
+    # Single bulk download for all tickers
+    df = yf.download(
+        WATCHLIST_TICKERS,
+        start=target_date,
+        end=target_date + timedelta(days=1),
+        progress=False,
+        auto_adjust=False,
+        group_by="ticker",
+        multi_level_index=True,
+    )
+
+    if df.empty:
+        context.log.warning(f"No data for {target_date} (non-trading day?)")
+        return MaterializeResult(metadata={"rows_written": 0, "is_trading_day": False})
+
+    # Reshape : yfinance returns a multi-level df (ticker × OHLCV)
+    # We flatten it to one row per ticker
+    all_rows: list[dict] = []
+    for ticker in WATCHLIST_TICKERS:
+        if ticker not in df.columns.get_level_values(0):
+            continue
+        ticker_df = df[ticker].dropna(how="all")
+        if ticker_df.empty:
+            continue
+        rows = validate_and_convert(ticker_df, ticker)
+        all_rows.extend(rows)
+
+    if not all_rows:
+        return MaterializeResult(metadata={"rows_written": 0})
+
+    # Write one Parquet for this day, all tickers concatenated
+    s3_client = s3.get_client()
+    key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}/part_daily.parquet"
+
+    table = pa.Table.from_pylist(all_rows)
+    buf = io.BytesIO()
+    pq.write_table(table, buf, compression="snappy")
+    buf.seek(0)
+
+    s3_client.put_object(
+        Bucket=BRONZE_BUCKET,
+        Key=key,
+        Body=buf.getvalue(),
+    )
+
+    return MaterializeResult(
+        metadata={
             "partition_date": str(target_date),
+            "tickers_count": len({r["ticker"] for r in all_rows}),
+            "rows_written": len(all_rows),
+            "s3_key": MetadataValue.text(f"s3://{BRONZE_BUCKET}/{key}"),
         }
     )
