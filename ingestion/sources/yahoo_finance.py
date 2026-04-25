@@ -13,10 +13,11 @@ Design decisions :
 CLI usage :
     python -m ingestion.sources.yahoo_finance --tickers NVDA,AAPL --days 30
 """
+
 from __future__ import annotations
 
 import io
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import click
@@ -62,9 +63,9 @@ def fetch_ticker_prices(ticker: str, start_date: date, end_date: date) -> pd.Dat
     df = yf.download(
         ticker,
         start=start_date,
-        end=end_date + timedelta(days=1),   # yfinance end is exclusive
+        end=end_date + timedelta(days=1),  # yfinance end is exclusive
         progress=False,
-        auto_adjust=False,   # we want both 'Close' and 'Adj Close'
+        auto_adjust=False,  # we want both 'Close' and 'Adj Close'
         multi_level_index=False,
     )
 

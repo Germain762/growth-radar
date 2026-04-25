@@ -1,4 +1,5 @@
 """Quick check : read Parquet from MinIO via DuckDB."""
+
 import duckdb
 
 con = duckdb.connect()
@@ -16,7 +17,7 @@ con.execute("""
 
 # Compter les lignes par ticker (scan toutes les partitions d'un coup !)
 result = con.execute("""
-    SELECT 
+    SELECT
         ticker,
         COUNT(*) AS rows,
         MIN(price_date) AS first_date,

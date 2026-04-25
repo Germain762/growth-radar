@@ -9,8 +9,8 @@ Pattern : every raw row from an external source goes through a Pydantic
 model before being written to bronze. If validation fails, we log and skip
 (fail-soft) rather than crash the whole batch (fail-hard).
 """
+
 from datetime import date
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -24,7 +24,7 @@ class YahooPriceBar(BaseModel):
     """
 
     model_config = ConfigDict(
-        populate_by_name=True,    # accept both 'Open' and 'open_price'
+        populate_by_name=True,  # accept both 'Open' and 'open_price'
         str_strip_whitespace=True,
     )
 
@@ -34,7 +34,7 @@ class YahooPriceBar(BaseModel):
     high_price: float = Field(alias="High")
     low_price: float = Field(alias="Low")
     close_price: float = Field(alias="Close")
-    adj_close: Optional[float] = Field(default=None, alias="Adj Close")
+    adj_close: float | None = Field(default=None, alias="Adj Close")
     volume: int = Field(alias="Volume")
 
     @field_validator("high_price")
@@ -45,9 +45,7 @@ class YahooPriceBar(BaseModel):
         for field_name in ("open_price", "low_price", "close_price"):
             other = values.get(field_name)
             if other is not None and v < other:
-                raise ValueError(
-                    f"high_price ({v}) < {field_name} ({other})"
-                )
+                raise ValueError(f"high_price ({v}) < {field_name} ({other})")
         return v
 
     @field_validator("volume")

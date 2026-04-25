@@ -6,6 +6,7 @@ Usage :
     s3 = get_s3_client()
     s3.list_buckets()
 """
+
 import os
 
 import boto3

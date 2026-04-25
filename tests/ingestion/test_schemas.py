@@ -1,4 +1,5 @@
 """Unit tests for Pydantic schemas validating data at ingestion boundary."""
+
 from datetime import date
 
 import pytest
@@ -32,12 +33,12 @@ class TestYahooPriceBar:
         """Pydantic should coerce string-typed numbers (common in CSVs / APIs)."""
         raw = {
             "ticker": "NVDA",
-            "price_date": "2025-04-23",   # string date
-            "Open": "145.23",              # string float
+            "price_date": "2025-04-23",  # string date
+            "Open": "145.23",  # string float
             "High": "147.10",
             "Low": "144.50",
             "Close": "146.80",
-            "Volume": "52000000",          # string int
+            "Volume": "52000000",  # string int
         }
         bar = YahooPriceBar.model_validate(raw)
         assert isinstance(bar.open_price, float)
@@ -65,7 +66,7 @@ class TestYahooPriceBar:
             "ticker": "NVDA",
             "price_date": date(2025, 4, 23),
             "Open": 145.0,
-            "High": 100.0,    # anomaly !
+            "High": 100.0,  # anomaly !
             "Low": 144.0,
             "Close": 146.0,
             "Volume": 1000,
