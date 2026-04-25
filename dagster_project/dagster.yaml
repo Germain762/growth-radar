@@ -1,7 +1,0 @@
-concurrency:
-  pools:
-    granularity: "op"  # par opération, pas par run
-    default_limit: 1   # tous les pools sans config explicite : 1
-    pools:
-      bronze:
-        max_concurrent: 3

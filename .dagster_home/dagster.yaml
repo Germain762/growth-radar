@@ -1,0 +1,4 @@
+concurrency:
+  pools:
+    granularity: "op"      # une opération à la fois compte (vs un run entier)
+    default_limit: 1       # tout pool non configuré explicitement = 1 op concurrente

@@ -27,6 +27,8 @@ dbt_project/logs/
 dbt_project/.user.yml
 
 # Dagster
+.dagster_home/*
+!.dagster_home/dagster.yaml
 dagster_project/.dagster_home/
 dagster_project/dagster.yaml.local
 
