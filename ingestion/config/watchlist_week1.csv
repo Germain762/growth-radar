@@ -1,0 +1,11 @@
+ticker,name,notes
+NVDA,NVIDIA Corporation,Semi-conducteurs / IA
+IPGP,IPG Photonics,Photonique industrielle
+COHR,Coherent Corp,Photonique / lasers
+LITE,Lumentum Holdings,Photonique datacenter
+AAPL,Apple Inc,Mega-cap tech (benchmark)
+MSFT,Microsoft Corporation,Mega-cap tech (benchmark)
+SOXX,iShares Semiconductor ETF,ETF semi-conducteurs
+SMH,VanEck Semiconductor ETF,ETF semi-conducteurs alternatif
+^GSPC,S&P 500 Index,Benchmark global
+^VIX,CBOE Volatility Index,Indicateur de stress

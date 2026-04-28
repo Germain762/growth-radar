@@ -44,7 +44,7 @@ derby.log
 # Data files (ne JAMAIS commiter des données brutes dans Git)
 data/
 *.parquet
-*.csv
+data/**/*.csv
 !dbt_project/seeds/*.csv
 
 # OS
