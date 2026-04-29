@@ -24,13 +24,24 @@ jobs:
       - name: Install dependencies
         run: |
           uv venv
-          uv pip install -e ".[dev,test]"
+          uv pip install -e ".[dev,test,dbt]"
 
       - name: Lint with ruff
         run: |
           source .venv/bin/activate
           ruff check .
           ruff format --check .
+
+      - name: Validate dbt project
+        run: |
+          source .venv/bin/activate
+          cd dbt_project
+          dbt deps
+          dbt parse
+        env:
+          MINIO_ENDPOINT_HOST: localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
 
       - name: Run fast tests
         run: |
