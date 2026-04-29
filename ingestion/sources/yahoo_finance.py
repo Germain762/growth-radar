@@ -118,7 +118,7 @@ def validate_and_convert(df: pd.DataFrame, ticker: str) -> list[dict]:
     return valid_rows
 
 
-def write_parquet_to_minio(rows: list[dict], target_date: date) -> str:
+def write_parquet_to_minio(rows: list[dict], target_date: date, s3_client=None) -> str:
     """
     Write a list of rows as a Parquet file to MinIO at :
         s3://bronze/yahoo_finance/prices/date=YYYY-MM-DD/part.parquet
@@ -140,7 +140,7 @@ def write_parquet_to_minio(rows: list[dict], target_date: date) -> str:
     # Build Hive-style partition key
     key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}/part_daily.parquet"
 
-    s3 = get_s3_client()
+    s3 = s3_client if s3_client is not None else get_s3_client()
     s3.put_object(
         Bucket=BRONZE_BUCKET,
         Key=key,

@@ -249,7 +249,7 @@ def yahoo_ticker_info_bronze(
     if not valid_rows:
         return MaterializeResult(metadata={"rows_written": 0, "failed_tickers": failed})
 
-    s3_key = write_ticker_info_to_minio(valid_rows, snapshot_date)
+    s3_key = write_ticker_info_to_minio(valid_rows, snapshot_date, s3_client=s3.get_client())
 
     return MaterializeResult(
         metadata={

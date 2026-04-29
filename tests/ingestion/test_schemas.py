@@ -1,11 +1,11 @@
 """Unit tests for Pydantic schemas validating data at ingestion boundary."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from pydantic import ValidationError
 
-from ingestion.schemas import YahooPriceBar
+from ingestion.schemas import TickerInfo, YahooPriceBar
 
 
 class TestYahooPriceBar:
@@ -120,3 +120,92 @@ class TestYahooPriceBar:
         # Aliases are NOT in the dump
         assert "Open" not in dumped
         assert "Adj Close" not in dumped
+
+
+class TestTickerInfo:
+    """Tests for TickerInfo : ticker static metadata validation."""
+
+    def _base_payload(self) -> dict:
+        """A minimal valid payload for an equity ticker."""
+        return {
+            "ticker": "NVDA",
+            "instrument_type": "equity",
+            "long_name": "NVIDIA Corporation",
+            "short_name": "NVIDIA",
+            "exchange": "NMS",
+            "currency": "USD",
+            "country_hq": "United States",
+            "gics_sector": "Technology",
+            "gics_industry": "Semiconductors",
+            "fetched_at": datetime.now(UTC),
+        }
+
+    def test_valid_equity_payload(self):
+        """A standard equity payload should validate without surprises."""
+        info = TickerInfo.model_validate(self._base_payload())
+        assert info.ticker == "NVDA"
+        assert info.instrument_type == "equity"
+        assert info.gics_sector == "Technology"
+
+    def test_etf_with_no_gics(self):
+        """ETFs don't have GICS classification — fields should be None."""
+        payload = {
+            "ticker": "SOXX",
+            "instrument_type": "etf",
+            "long_name": "iShares Semiconductor ETF",
+            "exchange": "NGM",
+            "currency": "USD",
+            "etf_category": "Technology",
+            "fetched_at": datetime.now(UTC),
+            # No gics_*, no country_hq
+        }
+        info = TickerInfo.model_validate(payload)
+        assert info.instrument_type == "etf"
+        assert info.gics_sector is None
+        assert info.gics_industry is None
+        assert info.etf_category == "Technology"
+
+    def test_index_with_minimal_fields(self):
+        """Indices like ^GSPC have very little metadata."""
+        payload = {
+            "ticker": "^GSPC",
+            "instrument_type": "index",
+            "long_name": "S&P 500",
+            "fetched_at": datetime.now(UTC),
+        }
+        info = TickerInfo.model_validate(payload)
+        assert info.instrument_type == "index"
+        assert info.currency is None
+
+    def test_extra_fields_are_ignored(self):
+        """yfinance throws hundreds of fields at us — extras must be ignored."""
+        payload = self._base_payload()
+        payload.update(
+            {
+                "marketCap": 3_000_000_000_000,
+                "trailingPE": 65.42,
+                "weirdYfinanceField": "lots of noise",
+            }
+        )
+        # Should not raise — extras are silently dropped
+        info = TickerInfo.model_validate(payload)
+        assert info.ticker == "NVDA"
+
+    def test_required_fields_missing_raises(self):
+        """ticker, instrument_type and fetched_at are required."""
+        from pydantic import ValidationError
+
+        payload = self._base_payload()
+        del payload["ticker"]
+        with pytest.raises(ValidationError, match="ticker"):
+            TickerInfo.model_validate(payload)
+
+    def test_model_dump_excludes_aliases(self):
+        """model_dump() returns clean snake_case dict ready for Parquet."""
+        info = TickerInfo.model_validate(self._base_payload())
+        dumped = info.model_dump()
+        assert "ticker" in dumped
+        assert "instrument_type" in dumped
+        assert "gics_sector" in dumped
+        # fetched_at should still be a datetime, not a string
+        assert isinstance(dumped["fetched_at"], datetime)

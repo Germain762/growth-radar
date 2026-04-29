@@ -81,7 +81,7 @@ def validate_and_convert_info(raw: dict) -> dict | None:
         return None
 
 
-def write_ticker_info_to_minio(rows: list[dict], snapshot_date: date) -> str:
+def write_ticker_info_to_minio(rows: list[dict], snapshot_date: date, s3_client=None) -> str:
     """Write ticker info batch to MinIO, partitioned by snapshot date."""
     if not rows:
         log.warning("no_rows_to_write")
@@ -94,7 +94,7 @@ def write_ticker_info_to_minio(rows: list[dict], snapshot_date: date) -> str:
 
     key = f"{SOURCE_PREFIX}/snapshot_date={snapshot_date.isoformat()}/part.parquet"
 
-    s3 = get_s3_client()
+    s3 = s3_client if s3_client is not None else get_s3_client()
     s3.put_object(
         Bucket=BRONZE_BUCKET,
         Key=key,
