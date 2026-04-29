@@ -138,7 +138,7 @@ def write_parquet_to_minio(rows: list[dict], target_date: date) -> str:
     buf.seek(0)
 
     # Build Hive-style partition key
-    key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}/part.parquet"
+    key = f"{SOURCE_PREFIX}/date={target_date.isoformat()}/part_daily.parquet"
 
     s3 = get_s3_client()
     s3.put_object(

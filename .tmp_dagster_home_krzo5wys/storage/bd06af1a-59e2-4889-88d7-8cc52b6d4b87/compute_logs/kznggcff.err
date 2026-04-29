@@ -1,6 +1,0 @@
-[32m2026-04-25 19:42:37 +0200[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - bd06af1a-59e2-4889-88d7-8cc52b6d4b87 - 81982 - LOGS_CAPTURED - Started capturing logs in process (pid: 81982).
-[32m2026-04-25 19:42:37 +0200[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - bd06af1a-59e2-4889-88d7-8cc52b6d4b87 - 81982 - yahoo_prices_history_bronze - STEP_START - Started execution of step "yahoo_prices_history_bronze".
-[32m2026-04-25 19:42:37 +0200[0m - dagster - [34mINFO[0m - __ASSET_JOB - bd06af1a-59e2-4889-88d7-8cc52b6d4b87 - yahoo_prices_history_bronze - Fetching AAPL from 2023-01-01 to 2026-04-25
-[32m2026-04-25 19:42:44 +0200[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - bd06af1a-59e2-4889-88d7-8cc52b6d4b87 - 81982 - yahoo_prices_history_bronze - STEP_OUTPUT - Yielded output "result" of type "Any". (Type check passed).
-[32m2026-04-25 19:42:44 +0200[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - bd06af1a-59e2-4889-88d7-8cc52b6d4b87 - 81982 - yahoo_prices_history_bronze - ASSET_MATERIALIZATION - Materialized value yahoo_prices_history_bronze.
-[32m2026-04-25 19:42:44 +0200[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - bd06af1a-59e2-4889-88d7-8cc52b6d4b87 - 81982 - yahoo_prices_history_bronze - STEP_SUCCESS - Finished execution of step "yahoo_prices_history_bronze" in 7.42s.

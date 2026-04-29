@@ -1,0 +1,18 @@
+growth_radar:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # The DuckDB file lives in the project root.
+      # All transformations happen here.
+      path: "{{ env_var('DBT_DUCKDB_PATH', '../growth_radar.duckdb') }}"
+
+      # Settings to read from MinIO (S3-compatible)
+      extensions:
+        - httpfs
+      settings:
+        s3_endpoint: "{{ env_var('MINIO_ENDPOINT_HOST', 'localhost:9000') }}"
+        s3_access_key_id: "{{ env_var('MINIO_ACCESS_KEY', 'minioadmin') }}"
+        s3_secret_access_key: "{{ env_var('MINIO_SECRET_KEY', 'minioadmin') }}"
+        s3_url_style: 'path'
+        s3_use_ssl: 'false'

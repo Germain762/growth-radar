@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Raw data ingested from external APIs, stored as Parquet on MinIO."
+
+    # External tables : pointers to S3 paths, no actual table in DuckDB
+    #meta:
+    #  external_location: "s3://bronze/{name}"
+
+    tables:
+      #Link between dagster assets and dbt sources : the 'name' here is used in dbt models to reference the source
+      - name: yahoo_prices_daily_bronze
+        description: "Daily OHLCV from Yahoo Finance, partitioned by date."
+        meta:
+          # Glob pattern for all parquet files in the dataset
+          external_location: "read_parquet('s3://bronze/yahoo_finance/prices/date=*/part_daily.parquet', hive_partitioning=1)"
+        columns:
+          - name: ticker
+            description: "Ticker symbol (NK)."
+          - name: price_date
+            description: "Trading date."
+
+      - name: yahoo_prices_history_bronze
+        description: "Historical OHLCV per ticker from initial backfill."
+        meta:
+          external_location: "read_parquet('s3://bronze/yahoo_finance/prices/date=*/ticker=*.parquet', hive_partitioning=1)"
+        columns:
+          - name: ticker
+          - name: price_date
+
+      - name: yahoo_ticker_info_bronze
+        description: "Static ticker metadata (sector, industry, country)."
+        meta:
+          external_location: "read_parquet('s3://bronze/yahoo_finance/ticker_info/snapshot_date=*/part.parquet', hive_partitioning=1)"
+        columns:
+          - name: ticker
+          - name: snapshot_date

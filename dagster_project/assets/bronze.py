@@ -12,7 +12,7 @@ API calls by grouping appropriately.
 """
 
 import io
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pyarrow as pa
@@ -201,5 +201,62 @@ def yahoo_prices_daily_bronze(
             "tickers_count": len({r["ticker"] for r in all_rows}),
             "rows_written": len(all_rows),
             "s3_key": MetadataValue.text(f"s3://{BRONZE_BUCKET}/{key}"),
+        }
+    )
+
+
+# =========================================================
+# Asset 3 : ticker static info (sector, industry, country)
+# =========================================================
+@asset(
+    name="yahoo_ticker_info_bronze",
+    description=(
+        "Static metadata per ticker : sector, industry, country, etc. "
+        "Refreshed weekly because this data changes rarely."
+    ),
+    group_name="bronze",
+    compute_kind="python",
+    pool="bronze",
+)
+def yahoo_ticker_info_bronze(
+    context: AssetExecutionContext,
+    s3: S3Resource,
+) -> MaterializeResult:
+    """Fetch ticker info for all watchlist tickers in one go."""
+    from ingestion.sources.yahoo_ticker_info import (
+        fetch_ticker_info,
+        validate_and_convert_info,
+        write_ticker_info_to_minio,
+    )
+
+    snapshot_date = datetime.now(UTC).date()
+
+    valid_rows: list[dict] = []
+    failed: list[str] = []
+
+    for ticker in WATCHLIST_TICKERS:
+        try:
+            raw = fetch_ticker_info(ticker)
+            validated = validate_and_convert_info(raw)
+            if validated:
+                valid_rows.append(validated)
+            else:
+                failed.append(ticker)
+        except Exception as e:
+            context.log.warning(f"Failed to fetch info for {ticker}: {e}")
+            failed.append(ticker)
+
+    if not valid_rows:
+        return MaterializeResult(metadata={"rows_written": 0, "failed_tickers": failed})
+
+    s3_key = write_ticker_info_to_minio(valid_rows, snapshot_date)
+
+    return MaterializeResult(
+        metadata={
+            "rows_written": len(valid_rows),
+            "tickers_succeeded": len(valid_rows),
+            "tickers_failed": failed,
+            "snapshot_date": str(snapshot_date),
+            "s3_key": MetadataValue.text(f"s3://{BRONZE_BUCKET}/{s3_key}"),
         }
     )

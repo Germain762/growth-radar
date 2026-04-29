@@ -10,7 +10,7 @@ model before being written to bronze. If validation fails, we log and skip
 (fail-soft) rather than crash the whole batch (fail-hard).
 """
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -54,3 +54,38 @@ class YahooPriceBar(BaseModel):
         if v < 0:
             raise ValueError(f"volume must be >= 0, got {v}")
         return v
+
+
+class TickerInfo(BaseModel):
+    """
+    Static metadata for a ticker (company or ETF) from yfinance.
+
+    Note : yfinance .info dict is huge and unstable.
+    We extract only the fields we need and trust those that work.
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="ignore",  # ignore any extra keys yfinance throws at us
+        str_strip_whitespace=True,
+    )
+
+    ticker: str
+    instrument_type: str  # 'equity' | 'etf' | 'index'
+    long_name: str | None = None
+    short_name: str | None = None
+    exchange: str | None = None
+    currency: str | None = None
+    country_hq: str | None = None
+
+    # GICS classification (only for equities)
+    gics_sector: str | None = None
+    gics_industry_group: str | None = None
+    gics_industry: str | None = None
+    gics_sub_industry: str | None = None
+
+    # ETF-specific fields
+    etf_category: str | None = None
+
+    # Timestamp of when we fetched this info
+    fetched_at: datetime
