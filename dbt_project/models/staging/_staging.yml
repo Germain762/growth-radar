@@ -56,3 +56,26 @@ models:
           combination_of_columns:
             - ticker_nk
             - price_date
+  - name: stg_yahoo_ticker_info
+    description: |
+      Latest snapshot of static metadata per ticker.
+      Sourced from the weekly yahoo_ticker_info_bronze asset.
+
+    columns:
+      - name: ticker_nk
+        description: "Ticker symbol — natural key."
+        tests:
+          - not_null
+          - unique     # one row per ticker after deduplication
+
+      - name: instrument_type
+        description: "Type of instrument."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['equity', 'etf', 'index', 'unknown']
+
+      - name: source_fetched_at
+        description: "When yfinance was queried for this snapshot."
+        tests:
+          - not_null

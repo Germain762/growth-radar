@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: dim_instrument
+    description: |
+      Unified dimension for all financial instruments (equities, ETFs, indices).
+
+      Currently SCD1 (overwrite). The SCD2 version with valid_from/valid_to
+      will live in snapshots/ (coming next).
+
+      The instrument_sk is a hash of ticker_nk : deterministic and idempotent.
+
+    columns:
+      - name: instrument_sk
+        description: "Surrogate key — dbt_scd_id from snapshot — hash of ticker_nk+valid_from."
+        tests:
+          - not_null
+          - unique
+
+      - name: ticker_nk
+        description: "Natural key — ticker symbol from yfinance."
+        tests:
+          - not_null
+          - unique
+
+      - name: instrument_type
+        description: "Discriminator : equity, etf, index, unknown."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['equity', 'etf', 'index', 'unknown']
+
+      - name: is_current
+        description: "True for current instruments (placeholder for SCD2)."
+        tests:
+          - not_null
