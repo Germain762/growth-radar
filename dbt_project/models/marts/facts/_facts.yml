@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: fct_price_daily
+    description: |
+      Daily OHLCV facts with calculated returns and risk metrics.
+
+      Grain : (instrument, trading day).
+      Materialized incrementally with a 60-day rolling window for late corrections.
+
+    columns:
+      - name: price_sk
+        description: "Surrogate key — hash of (ticker_nk, price_date)."
+        tests:
+          - not_null
+          - unique
+
+      - name: instrument_sk
+        description: |
+          FK to dim_instrument. Can be NULL if ticker is missing from
+          dim_instrument (orphan fact). Should be investigated if frequent.
+        tests:
+          - relationships:
+              to: ref('dim_instrument')
+              field: instrument_sk
+              # config.where : exclude NULL FKs from the relationship test
+              config:
+                where: "instrument_sk is not null"
+
+      - name: ticker_nk
+        tests:
+          - not_null
+
+      - name: price_date
+        tests:
+          - not_null
+
+      - name: close_price
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+      - name: volume
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+      - name: return_1d
+        description: "Daily return based on adj_close. May be NULL on first day per ticker."
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: -0.5    # circuit breaker : -50% in a day
+              max_value: 1.0     # +100% in a day
+              where: "return_1d is not null"
+
+    # Composite uniqueness check (defense in depth on top of price_sk unique)
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - ticker_nk
+            - price_date
