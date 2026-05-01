@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: mart_momentum_gics
+    description: |
+      Sector momentum mart : answers "which GICS sectors are
+      outperforming/underperforming the S&P 500 benchmark ?"
+
+      Grain : one row per GICS sector, on the latest available trading day.
+
+      Key metrics :
+        - avg/median returns across 5d, 21d, 63d, 252d windows
+        - excess returns vs S&P 500 (alpha)
+        - dispersion within sector (best - worst constituent)
+
+    columns:
+      - name: snapshot_date
+        description: "Reference trading date for this snapshot."
+        tests:
+          - not_null
+
+      - name: gics_sector
+        description: "GICS sector name."
+        tests:
+          - not_null
+          - unique         # one row per sector at a given snapshot
+
+      - name: nb_constituents
+        description: "Number of equities in this sector at this snapshot."
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+
+      - name: avg_return_21d
+        description: "Average 21-day return across sector constituents."
+
+      - name: excess_return_21d
+        description: "Sector return minus S&P 500 return over 21 days (alpha)."
