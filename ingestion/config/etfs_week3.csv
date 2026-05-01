@@ -1,0 +1,11 @@
+ticker,name,issuer,theme,is_ark
+SOXX,iShares Semiconductor ETF,iShares,Semiconductors,false
+SMH,VanEck Semiconductor ETF,VanEck,Semiconductors,false
+BOTZ,Global X Robotics & AI,Global X,AI/Robotics,false
+CIBR,First Trust NASDAQ Cybersecurity,First Trust,Cybersecurity,false
+ICLN,iShares Global Clean Energy,iShares,Clean Energy,false
+ITA,iShares US Aerospace & Defense,iShares,Aerospace/Defense,false
+ARKK,ARK Innovation ETF,ARK Invest,Innovation,true
+ARKQ,ARK Autonomous Tech & Robotics,ARK Invest,Auto/Robotics,true
+ARKG,ARK Genomic Revolution,ARK Invest,Genomics,true
+KWEB,KraneShares CSI China Internet,KraneShares,China Tech,false

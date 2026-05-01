@@ -89,3 +89,34 @@ class TickerInfo(BaseModel):
 
     # Timestamp of when we fetched this info
     fetched_at: datetime
+
+
+class EtfHolding(BaseModel):
+    """
+    A single ETF holding line (one row = one company in one ETF on one date).
+
+    All issuer-specific formats are normalized to this schema by the fetchers.
+    """
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="ignore",
+        str_strip_whitespace=True,
+    )
+
+    # Identification
+    etf_ticker: str  # the ETF holding the company (e.g., 'SOXX')
+    company_ticker: str  # the held company (e.g., 'NVDA')
+    company_name: str | None = None  # full name as published by issuer
+
+    # Snapshot reference
+    composition_date: date  # date the composition was published
+
+    # Position
+    weight_pct: float  # % of the ETF (0-100, NOT 0-1)
+    shares_held: float | None = None  # number of shares
+    market_value_usd: float | None = None
+
+    # Metadata
+    issuer: str  # e.g., 'iShares', 'ARK Invest'
+    fetched_at: datetime
