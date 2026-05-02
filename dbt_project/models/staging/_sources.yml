@@ -36,3 +36,9 @@ sources:
         columns:
           - name: ticker
           - name: snapshot_date
+
+      - name: etf_holdings_bronze
+        description: |
+          Daily snapshots of ETF compositions (holdings + weights).
+          Partitioned by etf_ticker AND composition_date.
+          Multiple issuers : iShares, ARK Invest, Global X, etc.
