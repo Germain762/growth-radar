@@ -16,9 +16,13 @@ with snapshot as (
 )
 
 select
-    -- Surrogate key including version (deterministic per version)
-    -- This is dbt_scd_id from the snapshot — already a unique hash per version
-    dbt_scd_id                                             as instrument_sk,
+    -- Clé d'ENTITÉ : hash de ticker_nk, stable dans le temps.
+    -- C'est la cible des FK de faits — elle ne change jamais pour un ticker.
+    {{ dbt_utils.generate_surrogate_key(['ticker_nk']) }} as instrument_sk,
+
+    -- Clé de VERSION : le dbt_scd_id du snapshot, change à chaque nouvelle
+    -- version. Conservée pour l'analyse historique des attributs (SCD2).
+    dbt_scd_id                                             as instrument_version_sk,
 
     -- Natural key
     ticker_nk,

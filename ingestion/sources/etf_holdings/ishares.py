@@ -14,6 +14,7 @@ URL DISCOVERY (when these break) :
   4. Right-click on "Detailed Holdings and Analytics" → Copy link address
 """
 
+import re
 from datetime import UTC, date, datetime
 from io import StringIO
 
@@ -26,19 +27,30 @@ from ingestion.sources.etf_holdings.base import EtfHoldingsFetcher
 
 log = structlog.get_logger()
 
-
-ISHARES_URLS: dict[str, str] = {
-    "SOXX": "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf/1467271812596.ajax?fileType=csv",
-    "ICLN": "https://www.ishares.com/us/products/239738/ishares-global-clean-energy-etf/1467271812596.ajax?fileType=csv",
-    "ITA": "https://www.ishares.com/us/products/239502/ishares-us-aerospace-defense-etf/1467271812596.ajax?fileType=csv",
+ISHARES_PORTFOLIO_IDS: dict[str, str] = {
+    "SOXX": "239705",
+    "ICLN": "239738",
+    "ITA": "239502",
 }
+
+_ISHARES_URL_TEMPLATE = (
+    "https://www.blackrock.com/varnish-api/blk-one01-product-data"
+    "/product-data/api/v1/get-fund-document"
+    "?appType=PRODUCT_PAGE&appSubType=ISHARES&targetSite=us-ishares"
+    "&locale=en_US&portfolioId={portfolio_id}&userType=individual"
+    "&component=holdings"
+)
+
+
+def _build_ishares_url(portfolio_id: str) -> str:
+    return _ISHARES_URL_TEMPLATE.format(portfolio_id=portfolio_id)
 
 
 class IsharesHoldingsFetcher(EtfHoldingsFetcher):
     """Fetcher for iShares (BlackRock) ETFs."""
 
     issuer_name = "iShares"
-    supported_tickers = list(ISHARES_URLS.keys())
+    supported_tickers = list(ISHARES_PORTFOLIO_IDS.keys())
 
     @retry(
         stop=stop_after_attempt(3),
@@ -50,7 +62,14 @@ class IsharesHoldingsFetcher(EtfHoldingsFetcher):
         log.info("ishares_download_start", url=url)
         with httpx.Client(
             timeout=30.0,
-            headers={"User-Agent": "GrowthRadar/1.0 contact@example.com"},
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0 Safari/537.36"
+                ),
+                "Accept": "text/csv,application/csv,text/plain,*/*",
+            },
             follow_redirects=True,
         ) as client:
             response = client.get(url)
@@ -94,17 +113,45 @@ class IsharesHoldingsFetcher(EtfHoldingsFetcher):
                 return i
         raise ValueError("Could not find iShares CSV header row (no 'Ticker' column)")
 
+    @staticmethod
+    def _extract_as_of_date(csv_text: str) -> date | None:
+        """
+        Extract the holdings date from the iShares CSV preamble.
+
+        The preamble contains a line like :
+            Fund Holdings as of,"Jul 09, 2026"
+
+        Returns the parsed date, or None if not found / unparseable
+        (caller then falls back to today).
+        """
+        for line in csv_text.splitlines()[:15]:  # date is always near the top
+            if "Fund Holdings as of" in line:
+                # Grab the quoted date part, e.g. "Jul 09, 2026"
+                match = re.search(r'"?([A-Z][a-z]{2} \d{1,2}, \d{4})"?', line)
+                if match:
+                    try:
+                        return datetime.strptime(match.group(1), "%b %d, %Y").date()
+                    except ValueError:
+                        return None
+        return None
+
     def fetch(
         self,
         etf_ticker: str,
         composition_date: date | None = None,
     ) -> list[dict]:
         """Fetch current holdings for an iShares ETF."""
-        if etf_ticker.upper() not in ISHARES_URLS:
+        if etf_ticker.upper() not in ISHARES_PORTFOLIO_IDS:
             raise ValueError(f"iShares ticker {etf_ticker} not supported")
 
-        url = ISHARES_URLS[etf_ticker.upper()]
+        url = _build_ishares_url(ISHARES_PORTFOLIO_IDS[etf_ticker.upper()])
         csv_text = self._download_csv(url)
+
+        if csv_text.lstrip().lower().startswith(("<!doctype", "<html")):
+            raise RuntimeError(
+                f"iShares returned HTML instead of CSV for {url}. "
+                f"The download endpoint likely changed again — re-check via DevTools."
+            )
 
         # Skip the metadata preamble — find the real header row
         header_row = self._find_header_row(csv_text)
@@ -128,7 +175,13 @@ class IsharesHoldingsFetcher(EtfHoldingsFetcher):
         df = df[df["ticker"].astype(str).str.strip() != "-"]
         df = df[df["ticker"].astype(str).str.strip() != ""]
 
-        snapshot_date = composition_date or datetime.now(UTC).date()
+        # Prefer the issuer's declared date over today's date.
+        # Priority : explicit arg > date parsed from file > today (last resort).
+        as_of = self._extract_as_of_date(csv_text)
+        snapshot_date = composition_date or as_of or datetime.now(UTC).date()
+
+        if as_of is None and composition_date is None:
+            log.warning("ishares_no_as_of_date", etf=etf_ticker, fallback="today")
         fetched_at = datetime.now(UTC)
 
         rows: list[dict] = []

@@ -105,3 +105,6 @@ addopts = "-v --tb=short"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"spark_jobs/*" = ["N812"]  # PySpark convention: import functions as F

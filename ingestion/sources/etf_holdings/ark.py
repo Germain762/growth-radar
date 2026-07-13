@@ -101,6 +101,21 @@ class ArkHoldingsFetcher(EtfHoldingsFetcher):
         except ValueError:
             return None
 
+    def _extract_composition_date(self, df: pd.DataFrame) -> date | None:
+        """
+        Read the composition date from ARK's 'date' column (format MM/DD/YYYY).
+        Returns None if absent or unparseable (caller falls back to today).
+        """
+        if "date" not in df.columns:
+            return None
+        raw = df["date"].dropna()
+        if raw.empty:
+            return None
+        try:
+            return datetime.strptime(str(raw.iloc[0]).strip(), "%m/%d/%Y").date()
+        except ValueError:
+            return None
+
     def fetch(
         self,
         etf_ticker: str,
@@ -123,7 +138,14 @@ class ArkHoldingsFetcher(EtfHoldingsFetcher):
         df = df.dropna(subset=["ticker", "weight (%)"])
         df = df[df["ticker"].astype(str).str.strip() != ""]
 
-        snapshot_date = composition_date or datetime.now(UTC).date()
+        # Prefer the issuer's declared date over today's date.
+        # Priority : explicit arg > date parsed from file > today (last resort).
+        file_date = self._extract_composition_date(df)
+        snapshot_date = composition_date or file_date or datetime.now(UTC).date()
+
+        if file_date is None and composition_date is None:
+            log.warning("ark_no_date_in_file", etf=etf_ticker, fallback="today")
+
         fetched_at = datetime.now(UTC)
 
         rows: list[dict] = []

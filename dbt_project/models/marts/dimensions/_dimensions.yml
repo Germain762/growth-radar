@@ -17,6 +17,12 @@ models:
           - not_null
           - unique
 
+      - name: instrument_version_sk
+        description: "dbt_scd_id from snapshot — unique per version, for SCD2 analysis."
+        tests:
+          - not_null
+          - unique
+
       - name: ticker_nk
         description: "Natural key — ticker symbol from yfinance."
         tests:

@@ -22,20 +22,6 @@
 
 with enriched as (
     select * from {{ ref('int_prices_enriched') }}
-),
-
-instruments as (
-    select instrument_sk, ticker_nk
-    from {{ ref('dim_instrument') }}
-),
-
-joined as (
-    select
-        e.*,
-        i.instrument_sk
-    from enriched e
-    left join instruments i
-        on e.ticker_nk = i.ticker_nk
 )
 
 select
@@ -43,7 +29,7 @@ select
     {{ dbt_utils.generate_surrogate_key(['ticker_nk', 'price_date']) }}  as price_sk,
 
     -- Foreign keys
-    instrument_sk,
+    {{ dbt_utils.generate_surrogate_key(['ticker_nk']) }} as instrument_sk,
 
     -- Natural keys (kept for direct querying / debug)
     ticker_nk,
@@ -75,7 +61,7 @@ select
     -- Lineage
     current_timestamp                                                   as dbt_loaded_at
 
-from joined
+from enriched
 
 {% if is_incremental() %}
     -- On incremental runs, only process new dates
