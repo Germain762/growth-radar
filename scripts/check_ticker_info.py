@@ -16,8 +16,8 @@ result = con.execute("""
         ticker,
         instrument_type,
         long_name,
-        gics_sector,
-        gics_industry,
+        yahoo_sector,
+        yahoo_industry,
         country_hq
     FROM read_parquet('s3://bronze/yahoo_finance/ticker_info/snapshot_date=*/*.parquet', hive_partitioning=1)
     ORDER BY instrument_type, ticker

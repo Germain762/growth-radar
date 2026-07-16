@@ -1,17 +1,17 @@
 {{ config(materialized='table') }}
 
 -- =====================================================================
--- mart_momentum_gics — sector momentum vs S&P 500 benchmark
+-- mart_momentum_yahoo — sector momentum vs S&P 500 benchmark
 -- =====================================================================
 -- Business question :
---   "Which GICS sectors are outperforming/underperforming the market
+--   "Which Yahoo Finance sectors are outperforming/underperforming the market
 --    over different time horizons (1W, 1M, 3M, 1Y) ?"
 --
--- Grain : (gics_sector, snapshot_date)
+-- Grain : (yahoo_sector, snapshot_date)
 -- Where snapshot_date is the latest trading day available in fct_price_daily.
 --
 -- Output :
---   - One row per GICS sector
+--   - One row per Yahoo Finance sector
 --   - Average + median return over 5d, 21d, 63d, 252d
 --   - Excess return vs S&P 500 (alpha)
 --   - Number of constituents and average volatility
@@ -26,7 +26,7 @@ with latest_date as (
 -- Step 1 : equities only, with their sector, on the latest date
 equity_returns_latest as (
     select
-        d.gics_sector,
+        d.yahoo_sector,
         d.ticker_nk,
         f.price_date,
         f.close_price,
@@ -42,13 +42,13 @@ equity_returns_latest as (
     cross join latest_date l
     where f.price_date = l.snapshot_date
       and d.instrument_type = 'equity'
-      and d.gics_sector is not null
+      and d.yahoo_sector is not null
 ),
 
 -- Step 2 : aggregate by sector
 sector_aggregates as (
     select
-        gics_sector,
+        yahoo_sector,
         count(distinct ticker_nk)                 as nb_constituents,
 
         -- Mean returns (simple average across constituents)
@@ -72,7 +72,7 @@ sector_aggregates as (
         min(return_21d)                           as worst_constituent_return_21d
 
     from equity_returns_latest
-    group by gics_sector
+    group by yahoo_sector
 ),
 
 -- Step 3 : the S&P 500 benchmark (as a separate row, not aggregated)
@@ -94,7 +94,7 @@ select
     l.snapshot_date,
 
     -- Sector identification
-    s.gics_sector,
+    s.yahoo_sector,
     s.nb_constituents,
 
     -- Mean returns

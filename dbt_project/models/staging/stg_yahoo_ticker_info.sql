@@ -31,11 +31,11 @@ select
     cast(currency            as varchar)  as currency,
     cast(country_hq          as varchar)  as country_hq,
 
-    -- GICS classification (NULL for ETFs and indices)
-    cast(gics_sector         as varchar)  as gics_sector,
-    cast(gics_industry_group as varchar)  as gics_industry_group,
-    cast(gics_industry       as varchar)  as gics_industry,
-    cast(gics_sub_industry   as varchar)  as gics_sub_industry,
+    -- Yahoo Finance classification (NULL for ETFs and indices)
+    cast(yahoo_sector           as varchar)  as yahoo_sector,
+    cast(industry_group         as varchar)  as industry_group,
+    cast(yahoo_industry         as varchar)  as yahoo_industry,
+    cast(sub_industry           as varchar)  as sub_industry,
 
     -- ETF-specific fields
     cast(etf_category        as varchar)  as etf_category,

@@ -135,8 +135,8 @@ class TestTickerInfo:
             "exchange": "NMS",
             "currency": "USD",
             "country_hq": "United States",
-            "gics_sector": "Technology",
-            "gics_industry": "Semiconductors",
+            "yahoo_sector": "Technology",
+            "yahoo_industry": "Semiconductors",
             "fetched_at": datetime.now(UTC),
         }
 
@@ -145,10 +145,10 @@ class TestTickerInfo:
         info = TickerInfo.model_validate(self._base_payload())
         assert info.ticker == "NVDA"
         assert info.instrument_type == "equity"
-        assert info.gics_sector == "Technology"
+        assert info.yahoo_sector == "Technology"
 
-    def test_etf_with_no_gics(self):
-        """ETFs don't have GICS classification — fields should be None."""
+    def test_etf_with_no_yahoo_classification(self):
+        """ETFs don't have Yahoo Finance classification — fields should be None."""
         payload = {
             "ticker": "SOXX",
             "instrument_type": "etf",
@@ -157,12 +157,12 @@ class TestTickerInfo:
             "currency": "USD",
             "etf_category": "Technology",
             "fetched_at": datetime.now(UTC),
-            # No gics_*, no country_hq
+            # No yahoo_*, no country_hq
         }
         info = TickerInfo.model_validate(payload)
         assert info.instrument_type == "etf"
-        assert info.gics_sector is None
-        assert info.gics_industry is None
+        assert info.yahoo_sector is None
+        assert info.yahoo_industry is None
         assert info.etf_category == "Technology"
 
     def test_index_with_minimal_fields(self):
@@ -206,6 +206,6 @@ class TestTickerInfo:
         dumped = info.model_dump()
         assert "ticker" in dumped
         assert "instrument_type" in dumped
-        assert "gics_sector" in dumped
+        assert "yahoo_sector" in dumped
         # fetched_at should still be a datetime, not a string
         assert isinstance(dumped["fetched_at"], datetime)

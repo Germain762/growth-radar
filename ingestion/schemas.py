@@ -78,11 +78,11 @@ class TickerInfo(BaseModel):
     currency: str | None = None
     country_hq: str | None = None
 
-    # GICS classification (only for equities)
-    gics_sector: str | None = None
-    gics_industry_group: str | None = None
-    gics_industry: str | None = None
-    gics_sub_industry: str | None = None
+    # Yahoo Finance classification (only for equities)
+    yahoo_sector: str | None = None
+    industry_group: str | None = None
+    yahoo_industry: str | None = None
+    sub_industry: str | None = None
 
     # ETF-specific fields
     etf_category: str | None = None

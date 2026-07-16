@@ -61,10 +61,10 @@ def fetch_ticker_info(ticker: str) -> dict:
         "currency": info.get("currency"),
         "country_hq": info.get("country"),
         # GICS-style fields (only present on equities)
-        "gics_sector": info.get("sector"),
-        "gics_industry_group": None,  # yfinance doesn't expose this level
-        "gics_industry": info.get("industry"),
-        "gics_sub_industry": None,  # not exposed either
+        "yahoo_sector": info.get("sector"),
+        "industry_group": None,  # yfinance doesn't expose this level
+        "yahoo_industry": info.get("industry"),
+        "sub_industry": None,  # not exposed either
         # ETF-specific
         "etf_category": info.get("category") if instrument_type == "etf" else None,
         "fetched_at": datetime.now(UTC),

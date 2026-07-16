@@ -55,4 +55,5 @@ select distinct on (ticker, price_date)
     current_timestamp                  as dbt_loaded_at
 
 from unioned
+where price_date < (current_date at time zone 'America/New_York')
 order by ticker, price_date, volume desc

@@ -17,7 +17,7 @@ CLI usage :
 from __future__ import annotations
 
 import io
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import click
@@ -156,6 +156,58 @@ def write_parquet_to_minio(rows: list[dict], target_date: date, s3_client=None) 
     )
 
     return key
+
+
+def find_last_trading_date(
+    reference_ticker: str = "^GSPC",
+    max_lookback_days: int = 7,
+    today: date | None = None,
+) -> date | None:
+    """
+    Find the most recent closed trading session that actually has data.
+
+    We don't encode a market calendar : we ask the source and walk back
+    until it returns something. yfinance already knows about weekends,
+    holidays and unscheduled closures — better than we ever would.
+
+    Starts at yesterday (never today : the current session isn't closed).
+
+    Args:
+        reference_ticker: the instrument used to probe. ^GSPC is a good
+            proxy for "was the US market open ?".
+        max_lookback_days: how far back to walk before giving up. Beyond
+            a long weekend + holiday, absence of data means something is
+            broken, not that the market was closed.
+        today: injectable for testing.
+
+    Returns:
+        The last trading date with data, or None if nothing found within
+        the lookback window (which signals a problem worth investigating).
+    """
+    ref_today = today or datetime.now(UTC).date()
+
+    for offset in range(1, max_lookback_days + 1):
+        candidate = ref_today - timedelta(days=offset)
+        bars = fetch_ticker_prices(
+            reference_ticker,
+            start_date=candidate,
+            end_date=candidate + timedelta(days=1),
+        )
+        if bars:
+            log.info(
+                "last_trading_date_found",
+                trading_date=str(candidate),
+                days_back=offset,
+            )
+            return candidate
+        log.debug("no_data_for_date", date=str(candidate))
+
+    log.warning(
+        "no_trading_date_found",
+        lookback_days=max_lookback_days,
+        reference_ticker=reference_ticker,
+    )
+    return None
 
 
 def load_watchlist(path: Path) -> list[str]:

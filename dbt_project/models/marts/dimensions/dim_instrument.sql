@@ -37,18 +37,18 @@ select
     currency,
     country_hq,
 
-    -- GICS classification
-    gics_sector,
-    gics_industry_group,
-    gics_industry,
-    gics_sub_industry,
+    -- Yahoo Finance classification
+    yahoo_sector,
+    industry_group,
+    yahoo_industry,
+    sub_industry,
 
-    -- Concatenated GICS path
+    -- Concatenated Yahoo Finance path
     case
-        when gics_sector is not null
-        then gics_sector || ' / ' || coalesce(gics_industry, '?')
+        when yahoo_sector is not null
+        then yahoo_sector || ' / ' || coalesce(yahoo_industry, '?')
         else null
-    end                                                    as gics_path,
+    end                                                    as yahoo_path,
 
     -- ETF-specific
     etf_category,

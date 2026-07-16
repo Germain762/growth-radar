@@ -31,6 +31,7 @@ from dagster_project.resources.s3 import S3Resource
 from ingestion.sources.yahoo_finance import (
     BRONZE_BUCKET,
     SOURCE_PREFIX,
+    fetch_ticker_prices,
     load_watchlist,
     validate_and_convert,
 )
@@ -178,7 +179,34 @@ def yahoo_prices_daily_bronze(
         all_rows.extend(rows)
 
     if not all_rows:
-        return MaterializeResult(metadata={"rows_written": 0})
+        # Distinguish "market closed" from "source broken" — both produce
+        # zero rows, but only one is normal. We probe the reference index :
+        # if it has no data either, the market was closed. If it does have
+        # data but our tickers don't, something is wrong.
+        reference_bars = fetch_ticker_prices(
+            "^GSPC",
+            start_date=target_date,
+            end_date=target_date + timedelta(days=1),
+        )
+        market_was_open = bool(reference_bars)
+
+        reason = (
+            "source_returned_nothing_but_market_was_open" if market_was_open else "market_closed"
+        )
+        if market_was_open:
+            context.log.warning(
+                f"No data for {target_date} but ^GSPC has data — "
+                f"this is NOT a market closure, investigate."
+            )
+
+        return MaterializeResult(
+            metadata={
+                "rows_written": 0,
+                "target_date": str(target_date),
+                "empty_reason": reason,
+                "market_was_open": market_was_open,
+            }
+        )
 
     # Write one Parquet for this day, all tickers concatenated
     s3_client = s3.get_client()

@@ -1,12 +1,12 @@
 version: 2
 
 models:
-  - name: mart_momentum_gics
+  - name: mart_momentum_yahoo
     description: |
-      Sector momentum mart : answers "which GICS sectors are
+      Sector momentum mart : answers "which Yahoo Finance sectors are
       outperforming/underperforming the S&P 500 benchmark ?"
 
-      Grain : one row per GICS sector, on the latest available trading day.
+      Grain : one row per Yahoo Finance sector, on the latest available trading day.
 
       Key metrics :
         - avg/median returns across 5d, 21d, 63d, 252d windows
@@ -19,8 +19,8 @@ models:
         tests:
           - not_null
 
-      - name: gics_sector
-        description: "GICS sector name."
+      - name: yahoo_sector
+        description: "Yahoo Finance sector name."
         tests:
           - not_null
           - unique         # one row per sector at a given snapshot
